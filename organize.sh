@@ -2,8 +2,8 @@
 #
 # File Organiser — Bash wrapper around organizer.py
 #
-# Sorts a messy downloads folder into a clean, searchable archive by type,
-# date and project. Run with no arguments to organise ~/Downloads into
+# Sorts a downloads folder into a clean, searchable archive by type, date
+# and project. Run with no arguments to organise ~/Downloads into
 # ~/Organized; use --dry-run first to preview.
 #
 # Usage: ./organize.sh [OPTIONS]
@@ -38,19 +38,6 @@ VERBOSE=""
 RECURSIVE=""
 LIMIT=""
 
-print_banner() {
-    printf '%b\n' "${BLUE}"
-    cat << 'EOF'
-  _____ _ _        ___                        _
- |  ___(_) | ___  / _ \ _ __ __ _  __ _ _ __ (_)___  ___ _ __
- | |_  | | |/ _ \| | | | '__/ _` |/ _` | '_ \| / __|/ _ \ '__|
- |  _| | | |  __/| |_| | | | (_| | (_| | | | | \__ \  __/ |
- |_|   |_|_|\___| \___/|_|  \__, |\__,_|_| |_|_|___/\___|_|
-                            |___/
-EOF
-    printf '%b\n' "${NC}"
-}
-
 print_help() {
     cat << EOF
 ${CYAN}USAGE:${NC}
@@ -80,48 +67,44 @@ EOF
 
 check_python() {
     if ! command -v python3 >/dev/null 2>&1; then
-        printf '%b\n' "${RED}❌  python3 not found. Please install Python 3.8+.${NC}"
+        printf '%b\n' "${RED}error: python3 not found (Python 3.8+ required)${NC}"
         exit 1
     fi
     local py_ver
     py_ver="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-    printf '%b\n' "${GREEN}✓  Python ${py_ver} found${NC}"
+    printf '%b\n' "${GREEN}python3 ${py_ver} found${NC}"
 }
 
 install_deps() {
-    printf '%b\n' "${BLUE}📦  Checking dependencies...${NC}"
+    printf '%b\n' "${BLUE}Checking dependencies...${NC}"
     check_python
 
     if ! python3 -c "import yaml" >/dev/null 2>&1; then
-        printf '%b\n' "${YELLOW}ℹ️   PyYAML is not installed — the bundled config parser will be used.${NC}"
-        printf '%b\n' "${YELLOW}    (Optional: pip3 install --user pyyaml)${NC}"
+        printf '%b\n' "${YELLOW}PyYAML is not installed; the built-in config parser will be used.${NC}"
+        printf '%b\n' "${YELLOW}(Optional: pip3 install --user pyyaml)${NC}"
     else
-        printf '%b\n' "${GREEN}✓  PyYAML available${NC}"
+        printf '%b\n' "${GREEN}PyYAML available${NC}"
     fi
 
     chmod +x "$PYTHON_SCRIPT" 2>/dev/null || true
     chmod +x "$SCRIPT_DIR/organize.sh" 2>/dev/null || true
-    printf '%b\n' "${GREEN}✅  Setup complete!${NC}"
+    printf '%b\n' "${GREEN}Setup complete.${NC}"
 }
 
 setup_cron() {
     if ! command -v crontab >/dev/null 2>&1; then
-        printf '%b\n' "${RED}❌  'crontab' was not found — cron is not available on this system.${NC}"
+        printf '%b\n' "${RED}error: 'crontab' not found — cron is not available on this system${NC}"
         return 1
     fi
 
     local log_dir="${HOME}/Organized/_logs"
     local cron_line="0 9 * * 1 \"$SCRIPT_DIR/organize.sh\" --source \"$HOME/Downloads\" --dest \"$HOME/Organized\" >> \"$log_dir/cron.log\" 2>&1"
 
-    printf '%b\n' "${BLUE}⏰  Setting up weekly cron job (Mondays 9am)...${NC}"
-    printf '%s\n' "Command: $cron_line"
-
-    if [[ -n "${CI:-}" ]] || [[ ! -t 0 ]]; then
-        printf '%b\n' "${YELLOW}ℹ️   Non-interactive shell: skipping the overwrite prompt.${NC}"
-    fi
+    printf '%b\n' "${BLUE}Setting up weekly cron job (Mondays 9am)...${NC}"
+    printf 'Command: %s\n' "$cron_line"
 
     if crontab -l 2>/dev/null | grep -q "organize.sh"; then
-        printf '%b\n' "${YELLOW}⚠️   A cron job already exists:${NC}"
+        printf '%b\n' "${YELLOW}A cron job already exists:${NC}"
         crontab -l 2>/dev/null | grep "organize.sh"
         if [[ -t 0 ]]; then
             read -r -p "Replace it? (y/N) " -n 1 REPLY
@@ -135,9 +118,9 @@ setup_cron() {
     fi
 
     (crontab -l 2>/dev/null; echo "$cron_line") | crontab -
-    printf '%b\n' "${GREEN}✅  Cron job installed!${NC}"
-    printf '%b\n' "   Runs every Monday at 9am. Check with: ${CYAN}crontab -l${NC}"
-    printf '%b\n' "   Logs at: ${CYAN}$log_dir/cron.log${NC}"
+    printf '%b\n' "${GREEN}Cron job installed.${NC}"
+    printf '%b\n' "Runs every Monday at 9am. Check with: ${CYAN}crontab -l${NC}"
+    printf '%b\n' "Logs at: ${CYAN}$log_dir/cron.log${NC}"
 }
 
 count_files() {
@@ -153,17 +136,17 @@ confirm_large_run() {
     local count="$1" verb
     if [[ -n "$ACTION" ]]; then verb="copy"; else verb="move"; fi
     if [[ "$count" -gt 1000 ]] && [[ -z "$DRY_RUN" ]]; then
-        printf '%b\n' "${YELLOW}⚠️   About to organise $count files. This will $verb files.${NC}"
-        printf '%b\n' "${YELLOW}    Run with --dry-run first to preview, or --copy to keep originals.${NC}"
+        printf '%b\n' "${YELLOW}About to $verb $count files.${NC}"
+        printf '%b\n' "${YELLOW}Run with --dry-run first to preview, or --copy to keep the originals.${NC}"
         if [[ -t 0 ]]; then
             read -r -p "Continue? (y/N) " -n 1 REPLY
             echo
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                printf '%b\n' "${BLUE}💡  Tip: ./organize.sh --dry-run --verbose${NC}"
+                printf '%b\n' "${BLUE}Tip: ./organize.sh --dry-run --verbose${NC}"
                 exit 0
             fi
         else
-            printf '%b\n' "${YELLOW}    Non-interactive shell: continuing (use --dry-run to preview).${NC}"
+            printf '%b\n' "${YELLOW}Non-interactive shell: continuing (use --dry-run to preview).${NC}"
         fi
     fi
 }
@@ -194,16 +177,15 @@ done
 # ---------------------------------------------------------------------------
 # Main execution
 # ---------------------------------------------------------------------------
-print_banner
 check_python
 
-# Expand a leading ~ and validate the source exists.
+# Expand a leading ~.
 SOURCE="$(printf '%s' "$SOURCE" | sed "s#^~/#$HOME/#")"
 DEST="$(printf '%s' "$DEST" | sed "s#^~/#$HOME/#")"
 
 if [[ ! -d "$SOURCE" ]]; then
-    printf '%b\n' "${RED}❌  Source folder not found: $SOURCE${NC}"
-    printf '%b\n' "${YELLOW}    Create a test folder with: python3 demo.py${NC}"
+    printf '%b\n' "${RED}error: source folder not found: $SOURCE${NC}"
+    printf '%b\n' "${YELLOW}Create a test folder with: python3 demo.py${NC}"
     exit 1
 fi
 
@@ -211,14 +193,14 @@ fi
 FILE_COUNT="$(count_files "$SOURCE")"
 confirm_large_run "$FILE_COUNT"
 
-printf '%b\n' "${CYAN}📁  Source:${NC} $SOURCE ($FILE_COUNT files at top level)"
-printf '%b\n' "${CYAN}📁  Dest:${NC}   $DEST"
-MODE_VERB="MOVE"; [[ -n "$ACTION" ]] && MODE_VERB="COPY"
-MODE_STATE="LIVE"; [[ -n "$DRY_RUN" ]] && MODE_STATE="DRY-RUN"
-printf '%b\n' "${CYAN}🔧  Mode:${NC}   $MODE | $MODE_VERB | $MODE_STATE"
+MODE_VERB="move"; [[ -n "$ACTION" ]] && MODE_VERB="copy"
+MODE_STATE="live"; [[ -n "$DRY_RUN" ]] && MODE_STATE="dry-run"
+printf '%b\n' "${CYAN}Source:${NC}      $SOURCE ($FILE_COUNT files at top level)"
+printf '%b\n' "${CYAN}Destination:${NC} $DEST"
+printf '%b\n' "${CYAN}Mode:${NC}        $MODE | $MODE_VERB | $MODE_STATE"
 echo
 
-printf '%b\n' "${BLUE}🚀  Running organiser...${NC}"
+printf '%b\n' "${BLUE}Running organiser...${NC}"
 echo
 
 START_TIME="$(date +%s)"
@@ -237,18 +219,17 @@ DURATION=$((END_TIME - START_TIME))
 
 if [[ $EXIT_CODE -eq 0 ]]; then
     if [[ -n "$DRY_RUN" ]]; then
-        printf '%b\n' "${YELLOW}👀  This was a dry run — no files were moved or created.${NC}"
+        printf '%b\n' "${YELLOW}Dry run: no files were moved or created.${NC}"
     else
-        printf '%b\n' "${GREEN}✨  Done! Your files are now organised.${NC}"
-        printf '%b\n' "${CYAN}📂  Check: $DEST${NC}"
+        printf '%b\n' "${GREEN}Done. Files organised in: $DEST${NC}"
         if command -v osascript >/dev/null 2>&1; then
-            osascript -e "display notification \"Organised $FILE_COUNT files in ${DURATION}s\" with title \"File Organiser ✅\""
+            osascript -e "display notification \"Organised $FILE_COUNT files in ${DURATION}s\" with title \"File Organiser\""
         elif command -v notify-send >/dev/null 2>&1; then
-            notify-send "File Organiser ✅" "Organised $FILE_COUNT files in ${DURATION}s"
+            notify-send "File Organiser" "Organised $FILE_COUNT files in ${DURATION}s"
         fi
     fi
-    printf '%b\n' "${GREEN}⏱️   Finished in ${DURATION}s${NC}"
+    printf '%b\n' "${GREEN}Finished in ${DURATION}s${NC}"
 else
-    printf '%b\n' "${RED}❌  The organiser reported errors (exit code $EXIT_CODE).${NC}"
+    printf '%b\n' "${RED}The organiser reported errors (exit code $EXIT_CODE).${NC}"
     exit "$EXIT_CODE"
 fi

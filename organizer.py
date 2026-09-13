@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 """
-File Organiser — core engine.
+File Organiser.
 
-Sorts a messy downloads folder into a clean, searchable archive,
-organised by file type, date and/or project.
+Sorts a downloads folder into a clean, searchable archive, organised by
+file type, date and/or project.
 
 Pure Python standard library (Python 3.8+). PyYAML is optional: the
-bundled YAML config is parsed by a small built-in parser when PyYAML
-is not installed, so the tool works out of the box with zero
-dependencies.
+bundled YAML config is parsed by a small built-in parser when PyYAML is
+not installed, so the tool works out of the box with zero dependencies.
 """
 
 from __future__ import annotations
@@ -19,7 +18,6 @@ import os
 import re
 import shutil
 import sys
-import time
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -32,11 +30,6 @@ except ImportError:  # pragma: no cover - depends on the environment
     HAS_YAML = False
 
 PROGRAM_NAME = "File Organiser"
-
-# Approximate time a person spends finding, deciding on, and filing one
-# downloaded file by hand. Used only for the "time saved" estimate
-# (matches the 30 s/file figure quoted in the README).
-MANUAL_SECONDS_PER_FILE = 30.0
 
 # Files that ship with this repo. Never relocate them, even if the user
 # points the organiser at the repo itself.
@@ -58,57 +51,26 @@ REPO_FILES = {
     )
 }
 
-# Extension -> category mapping. Each extension should map to a single
-# category so behaviour is deterministic (first match wins is not relied on).
-FILE_TYPES: Dict[str, Dict[str, object]] = {
-    "Images": {
-        "exts": {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp",
-                 ".svg", ".heic", ".raw", ".psd", ".ai"},
-        "icon": "🖼️",
-    },
-    "Documents": {
-        "exts": {".pdf", ".doc", ".docx", ".txt", ".rtf", ".odt", ".pages",
-                 ".md", ".tex"},
-        "icon": "📄",
-    },
-    "Spreadsheets": {
-        "exts": {".xls", ".xlsx", ".csv", ".ods", ".numbers"},
-        "icon": "📊",
-    },
-    "Presentations": {
-        "exts": {".ppt", ".pptx", ".key", ".odp"},
-        "icon": "📑",
-    },
-    "Archives": {
-        "exts": {".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz",
+# Extension -> category mapping.
+FILE_TYPES: Dict[str, Set[str]] = {
+    "Images": {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp",
+               ".svg", ".heic", ".raw", ".psd", ".ai"},
+    "Documents": {".pdf", ".doc", ".docx", ".txt", ".rtf", ".odt", ".pages",
+                  ".md", ".tex"},
+    "Spreadsheets": {".xls", ".xlsx", ".csv", ".ods", ".numbers"},
+    "Presentations": {".ppt", ".pptx", ".key", ".odp"},
+    "Archives": {".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz",
                  ".dmg", ".iso"},
-        "icon": "📦",
-    },
-    "Videos": {
-        "exts": {".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm",
-                 ".m4v", ".mpeg", ".mpg"},
-        "icon": "🎬",
-    },
-    "Audio": {
-        "exts": {".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a",
-                 ".aiff"},
-        "icon": "🎵",
-    },
-    "Code": {
-        "exts": {".py", ".js", ".ts", ".jsx", ".tsx", ".html", ".css",
-                 ".json", ".xml", ".sh", ".bash", ".java", ".cpp", ".c",
-                 ".h", ".go", ".rs", ".php", ".rb", ".sql", ".ipynb",
-                 ".toml", ".yaml", ".yml"},
-        "icon": "💻",
-    },
-    "Design": {
-        "exts": {".fig", ".sketch", ".xd", ".indd", ".blend", ".fbx", ".obj"},
-        "icon": "🎨",
-    },
-    "Executables": {
-        "exts": {".exe", ".app", ".msi", ".deb", ".rpm", ".apk"},
-        "icon": "⚙️",
-    },
+    "Videos": {".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm",
+               ".m4v", ".mpeg", ".mpg"},
+    "Audio": {".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a",
+              ".aiff"},
+    "Code": {".py", ".js", ".ts", ".jsx", ".tsx", ".html", ".css", ".json",
+             ".xml", ".sh", ".bash", ".java", ".cpp", ".c", ".h", ".go",
+             ".rs", ".php", ".rb", ".sql", ".ipynb", ".toml", ".yaml",
+             ".yml"},
+    "Design": {".fig", ".sketch", ".xd", ".indd", ".blend", ".fbx", ".obj"},
+    "Executables": {".exe", ".app", ".msi", ".deb", ".rpm", ".apk"},
 }
 
 # Built-in project keywords, used when no config file is present.
@@ -135,11 +97,6 @@ DATE_PATTERNS = (
 # Small helpers
 # ---------------------------------------------------------------------------
 
-def _icon(category: str) -> str:
-    meta = FILE_TYPES.get(category)
-    return str(meta["icon"]) if meta else "📁"
-
-
 def format_size(num_bytes: float) -> str:
     """Return a human-readable size, e.g. ``1.6 MB``."""
     size = float(num_bytes)
@@ -152,23 +109,11 @@ def format_size(num_bytes: float) -> str:
     return f"{size:.1f} PB"  # pragma: no cover - unreachable
 
 
-def human_duration(seconds: float) -> str:
-    """Return a compact human-readable duration, e.g. ``11h 06m``."""
-    total = max(0, int(round(seconds)))
-    if total < 60:
-        return f"{total}s"
-    minutes, secs = divmod(total, 60)
-    if minutes < 60:
-        return f"{minutes}m {secs:02d}s"
-    hours, mins = divmod(minutes, 60)
-    return f"{hours}h {mins:02d}m"
-
-
 def get_file_type(suffix: str) -> str:
     """Return the category for a file extension, or ``Other``."""
     suffix = suffix.lower()
-    for category, meta in FILE_TYPES.items():
-        if suffix in meta["exts"]:  # type: ignore[operator]
+    for category, extensions in FILE_TYPES.items():
+        if suffix in extensions:
             return category
     return "Other"
 
@@ -322,8 +267,8 @@ def load_config(
     try:
         data = _read_config_file(config_path)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        print(f"⚠️  Could not read config {config_path}: {exc}")
-        print("    Using built-in defaults.")
+        print(f"warning: could not read config {config_path}: {exc}")
+        print("         using built-in defaults")
         return projects, custom_types
 
     for name, keywords in (data.get("projects") or {}).items():
@@ -354,13 +299,8 @@ def apply_custom_types(custom_types: Dict[str, List[str]]) -> None:
             continue
         for other_category in FILE_TYPES:
             if other_category != category:
-                FILE_TYPES[other_category]["exts"].difference_update(  # type: ignore[union-attr]
-                    normalized
-                )
-        existing = FILE_TYPES.setdefault(
-            category, {"exts": set(), "icon": "📁"}
-        )
-        existing["exts"].update(normalized)  # type: ignore[union-attr]
+                FILE_TYPES[other_category].difference_update(normalized)
+        FILE_TYPES.setdefault(category, set()).update(normalized)
 
 
 # ---------------------------------------------------------------------------
@@ -478,7 +418,7 @@ def _parse_args(argv: Optional[List[str]]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="organizer.py",
         description=(
-            "Organise 2000+ downloaded files by type, date & project. "
+            "Organise files by type, date and project. "
             "Pure Python, zero required dependencies."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -518,18 +458,15 @@ def _parse_args(argv: Optional[List[str]]) -> argparse.Namespace:
 
 def _print_header(args: argparse.Namespace, source: Path, dest: Path,
                   config_path: Path) -> None:
-    action = "COPY" if args.copy else "MOVE"
-    mode = "DRY-RUN" if args.dry_run else "LIVE"
+    action = "copy" if args.copy else "move"
+    mode = "dry-run" if args.dry_run else "live"
     config_state = "found" if config_path.exists() else "using defaults"
-    bar = "=" * 64
-    print(f"\n{bar}")
-    print(f"📂  {PROGRAM_NAME}")
-    print(bar)
+    print(PROGRAM_NAME)
     print(f"  Source:       {source}")
     print(f"  Destination:  {dest}")
-    print(f"  Mode:         {args.by} · {action} · {mode}")
+    print(f"  Mode:         {args.by} | {action} | {mode}")
     print(f"  Config:       {config_path} ({config_state})")
-    print(bar + "\n")
+    print()
 
 
 def organize(args: argparse.Namespace, source: Path, dest: Path,
@@ -550,21 +487,23 @@ def organize(args: argparse.Namespace, source: Path, dest: Path,
         files = files[: args.limit]
 
     if not files:
-        print("✨  No files to organise. You're all tidy!\n")
+        print("No files to organise.")
         return 0
 
-    print(f"🔍  Found {total_found:,} file{'s' if total_found != 1 else ''}"
-          f" ({len(files):,} to process)")
+    print(f"Found {total_found:,} file{'s' if total_found != 1 else ''} "
+          f"({len(files):,} to process)")
     if args.dry_run:
-        print("👀  Dry run — nothing will be moved or created.\n")
+        print("Dry run: nothing will be moved or created.")
+    print()
 
-    start = time.monotonic()
     type_counts: Counter = Counter()
     project_counts: Counter = Counter()
     total_size = 0
     processed = 0
     errors: List[str] = []
     reserved: Set[Path] = set()
+
+    width = len(str(len(files)))
 
     for index, src in enumerate(files, 1):
         try:
@@ -581,14 +520,13 @@ def organize(args: argparse.Namespace, source: Path, dest: Path,
                 project_counts[project] += 1
 
             if args.verbose or args.dry_run:
-                project_str = f" → {project}" if project else ""
-                print(f"[{index:>{len(str(len(files)))}}/{len(files)}] "
-                      f"{_icon(category)} {src.name} "
-                      f"[{category} · {fdate.date()}]{project_str}")
+                suffix = f" -> {project}" if project else ""
+                print(f"[{index:>{width}}/{len(files)}] {src.name} "
+                      f"[{category}, {fdate.date()}]{suffix}")
                 if args.verbose:
-                    print(f"          └─ {dest_file.parent}/")
+                    print(f"{' ' * (width * 2 + 4)}-> {dest_file.parent}/")
             elif index % 200 == 0 or index == len(files):
-                print(f"  … processed {index:,}/{len(files):,} files "
+                print(f"  Processed {index:,}/{len(files):,} files "
                       f"({index / len(files) * 100:.0f}%)")
 
             if not args.dry_run:
@@ -597,60 +535,53 @@ def organize(args: argparse.Namespace, source: Path, dest: Path,
         except (OSError, shutil.Error) as exc:
             errors.append(f"{src.name}: {exc}")
             if args.verbose:
-                print(f"❌  {src.name}: {exc}")
+                print(f"  error: {src.name}: {exc}")
 
-    elapsed = time.monotonic() - start
-
-    _print_summary(args, processed, len(files), total_size, errors,
-                   type_counts, project_counts, elapsed)
+    _print_summary(args, processed, total_size, errors, type_counts,
+                   project_counts)
 
     if not args.dry_run:
-        _write_log(dest, source, processed, total_size, type_counts,
-                   project_counts, errors)
+        log_file = _write_log(dest, source, processed, total_size,
+                              type_counts, project_counts, errors)
+        print(f"Log saved to: {log_file}")
 
     return 1 if errors else 0
 
 
-def _print_summary(args: argparse.Namespace, processed: int, total: int,
-                   total_size: int, errors: List[str],
-                   type_counts: Counter, project_counts: Counter,
-                   elapsed: float) -> None:
-    bar = "=" * 64
-    print(f"\n{bar}")
-    print("✅  ORGANISATION COMPLETE" if not errors else "⚠️  COMPLETE WITH ERRORS")
-    print(bar)
-    print(f"  Processed:   {processed:,} files")
-    print(f"  Total size:  {format_size(total_size)}")
-    print(f"  Errors:      {len(errors)}")
+def _print_summary(args: argparse.Namespace, processed: int, total_size: int,
+                   errors: List[str], type_counts: Counter,
+                   project_counts: Counter) -> None:
+    print()
+    print("Summary")
+    print(f"  Processed:  {processed:,} files")
+    print(f"  Total size: {format_size(total_size)}")
+    print(f"  Errors:     {len(errors)}")
     if args.dry_run:
-        print("  Mode:        dry run (no changes made)")
+        print("  Mode:       dry-run (no changes made)")
 
-    print("\n  📊  By type:")
+    print()
+    print("  By type:")
     for category, count in type_counts.most_common():
-        print(f"    {_icon(category)} {category:<15} {count:>5,}")
+        print(f"    {category:<15} {count:>6,}")
 
     if project_counts:
-        print("\n  🚀  By project:")
+        print()
+        print("  By project:")
         for project, count in project_counts.most_common():
-            print(f"    📁 {project:<22} {count:>5,}")
-
-    manual_seconds = processed * MANUAL_SECONDS_PER_FILE
-    saved_seconds = max(0.0, manual_seconds - elapsed)
-    print(f"\n  ⏱️   Time saved this run: ~{human_duration(saved_seconds)}")
-    print(f"      (vs ~{human_duration(manual_seconds)} sorting by hand)")
+            print(f"    {project:<22} {count:>6,}")
 
     if errors:
-        print(f"\n  ⚠️   {len(errors)} file(s) could not be processed:")
+        print()
+        print(f"  {len(errors)} file(s) could not be processed:")
         for message in errors[:10]:
             print(f"    - {message}")
         if len(errors) > 10:
-            print(f"    … and {len(errors) - 10} more (see the log file)")
-    print(bar + "\n")
+            print(f"    - ... and {len(errors) - 10} more (see the log file)")
 
 
 def _write_log(dest: Path, source: Path, processed: int, total_size: int,
                type_counts: Counter, project_counts: Counter,
-               errors: List[str]) -> None:
+               errors: List[str]) -> Path:
     log_dir = dest / "_logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / (
@@ -672,7 +603,7 @@ def _write_log(dest: Path, source: Path, processed: int, total_size: int,
         lines.append("errors:")
         lines += [f"  - {message}" for message in errors]
     log_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"📝  Log saved to: {log_file}")
+    return log_file
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -682,16 +613,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     dest = Path(args.dest).expanduser().resolve()
 
     if not source.exists():
-        print(f"❌  Source folder does not exist: {source}")
+        print(f"error: source folder does not exist: {source}")
         return 1
     if not source.is_dir():
-        print(f"❌  Source is not a folder: {source}")
+        print(f"error: source is not a folder: {source}")
         return 1
     if source == dest:
-        print("❌  Source and destination must be different folders.")
+        print("error: source and destination must be different folders")
         return 1
     if _is_within(dest, source):
-        print("❌  The destination folder cannot be inside the source folder.")
+        print("error: the destination folder cannot be inside the source folder")
         return 1
 
     config_path = _resolve_config(args.config)
