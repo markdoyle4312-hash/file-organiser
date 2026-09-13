@@ -1,0 +1,60 @@
+# File Organiser Config
+# Customize your projects and file types here
+# Saves ~15 mins/week by auto-sorting Downloads
+
+# Projects are detected by keywords in filenames (case-insensitive)
+# Example: "website-redesign-mockup-v2.fig" -> Project: Website-Redesign
+projects:
+  Website-Redesign:
+    - website
+    - redesign
+    - figma
+    - mockup
+    - landing
+    - homepage
+
+  Tax-2024:
+    - tax
+    - invoice
+    - receipt
+    - ato
+    - expense
+    - w2
+    - "1099"
+    - bas
+
+  Uni-Research:
+    - thesis
+    - research
+    - paper
+    - dissertation
+    - assignment
+    - lecture
+    - uni
+
+  Client-Photoshoot:
+    - photoshoot
+    - wedding
+    - portrait
+    - lightroom
+    - preset
+    - client
+
+  Side-Hustle:
+    - etsy
+    - shopify
+    - product
+    - inventory
+
+  # Add your own:
+  # MyApp:
+  #   - myapp
+  #   - feature
+  #   - sprint
+
+# Custom file type mappings (optional - extends defaults)
+# Format: Category: [ext1, ext2, ...]
+file_types:
+  # 3D-Models: [.blend, .fbx, .obj, .stl]
+  # Ebooks: [.epub, .mobi, .azw3]
+  # Torrents: [.torrent]

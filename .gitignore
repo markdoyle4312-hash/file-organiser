@@ -1,0 +1,21 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+_*.log
+Organized/
+organized/
+test_downloads/
+test_organized/
+__pycache__/
+*.pyc
+
+# Test data
+/tmp/
+*.zip
+*.tar.gz
+
+# IDE
+.vscode/
+.idea/
