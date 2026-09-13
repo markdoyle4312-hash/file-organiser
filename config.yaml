@@ -1,9 +1,7 @@
-# File Organiser Config
-# Customize your projects and file types here
-# Saves ~15 mins/week by auto-sorting Downloads
-
-# Projects are detected by keywords in filenames (case-insensitive)
+# File Organiser configuration.
+# Projects are detected by keywords in filenames (case-insensitive).
 # Example: "website-redesign-mockup-v2.fig" -> Project: Website-Redesign
+
 projects:
   Website-Redesign:
     - website
@@ -52,7 +50,7 @@ projects:
   #   - feature
   #   - sprint
 
-# Custom file type mappings (optional - extends defaults)
+# Custom file type mappings (optional; extend or override the defaults).
 # Format: Category: [ext1, ext2, ...]
 file_types:
   # 3D-Models: [.blend, .fbx, .obj, .stl]

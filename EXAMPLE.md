@@ -1,92 +1,96 @@
-# Example Run - 2,000 Files
+# Example run — 2,000 files
+
+A real run against 2,000 generated test files (see `demo.py`).
 
 ## Command
+
 ```bash
-./organize.sh --source ~/Downloads --dest ~/Organized --dry-run --verbose | head -100
+python3 demo.py --count 2000 --source /tmp/test_downloads
+python3 organizer.py --source /tmp/test_downloads --dest /tmp/test_organized --dry-run --verbose | head -40
 ```
 
-## Output (real run from demo.py --count 2000)
+## Output
 
 ```
-============================================================
-📂 FILE ORGANISER - Save 15 mins/week
-============================================================
-Source:      /tmp/test_downloads
-Destination: /tmp/Organized
-Mode:        all | MOVE | DRY-RUN
-Config:      config.yaml (found)
-============================================================
+File Organiser
+  Source:       /tmp/test_downloads
+  Destination:  /tmp/test_organized
+  Mode:         all | move | dry-run
+  Config:       /home/user/file-organiser/config.yaml (found)
 
-🔍 Found 2000 files (2000 to process)
-👀 DRY-RUN: No files will be moved
+Found 2,000 files (2,000 to process)
+Dry run: nothing will be moved or created.
 
-[1/2000] 💻 landing-page-775-v4.css [Code | 2026-05-16] -> Website-Redesign
-       └─ /tmp/Organized/Projects/Website-Redesign/Code/2026/2026-05/
-[2/2000] 🖼️ 2025-07-22-figma-redesign-906-v2.png [Images | 2025-07-22] -> Website-Redesign
-[3/2000] 🖼️ receipt-expense-197.jpg [Images | 2025-03-30] -> Tax-2024
+[   1/2000] 2024-10-14-product-photo-etsy.psd [Images, 2024-10-14] -> Side-Hustle
+           -> /tmp/test_organized/Projects/Side-Hustle/Images/2024/2024-10/
+[   2/2000] 2024-10-14-song-346.wav [Audio, 2024-10-14]
+           -> /tmp/test_organized/Audio/2024/2024-10/
+[   3/2000] 2024-10-17-receipt.pdf [Documents, 2024-10-17] -> Tax-2024
+           -> /tmp/test_organized/Projects/Tax-2024/Documents/2024/2024-10/
+[   4/2000] 2024-10-19-IMG-photoshoot-956.jpg [Images, 2024-10-19] -> Client-Photoshoot
+           -> /tmp/test_organized/Projects/Client-Photoshoot/Images/2024/2024-10/
 ...
+[1999/2000] video_8.mov [Videos, 2026-02-14]
+           -> /tmp/test_organized/Videos/2026/2026-02/
+[2000/2000] video_9.mov [Videos, 2025-12-15]
+           -> /tmp/test_organized/Videos/2025/2025-12/
 
-============================================================
-✅ ORGANIZATION COMPLETE
-============================================================
-Processed:   2000 files
-Total size:  98.1MB
-Errors:      0
-Mode:        DRY-RUN (no changes made)
+Summary
+  Processed:  2,000 files
+  Total size: 95.5 MB
+  Errors:     0
+  Mode:       dry-run (no changes made)
 
-📊 By Type:
-  🖼️ Images          :  634 files
-  📄 Documents       :  415 files
-  🎬 Videos          :  210 files
-  📊 Spreadsheets    :  172 files
-  📦 Archives        :  151 files
-  💻 Code            :  151 files
-  🎵 Audio           :  132 files
-  🎨 Design          :   77 files
-  📑 Presentations   :   58 files
+  By type:
+    Images              594
+    Documents           429
+    Videos              185
+    Code                171
+    Spreadsheets        168
+    Audio               163
+    Archives            161
+    Design               84
+    Presentations        45
 
-🚀 By Project:
-  📁 Uni-Research         :  393 files
-  📁 Website-Redesign     :  361 files
-  📁 Tax-2024             :  335 files
-  📁 Client-Photoshoot    :  159 files
-  📁 Side-Hustle          :  150 files
-
-⏱️  Time saved: ~15.8 mins this run
-   Weekly (avg): ~15 mins | Monthly: ~60 mins | Yearly: ~13 hours!
-
-📝 Log saved to: /tmp/Organized/_logs/organize_2026-09-13_01-07.log
-
-💡 Tip: Add to crontab for weekly auto-run:
-   0 9 * * 1 /home/user/file-organiser/organize.sh --source ~/Downloads
-============================================================
+  By project:
+    Uni-Research             373
+    Website-Redesign         370
+    Tax-2024                 348
+    Client-Photoshoot        151
+    Side-Hustle              147
 ```
 
-## Resulting Folder Structure
+## Resulting folder structure
 
 ```
-/tmp/Organized/
+/tmp/test_organized/
+├── Audio/2024/2024-10/...
+├── Documents/2025/2025-03/...
 ├── Images/2024/2024-12/...
-├── Documents/2025/2025-10/...
+├── Videos/2025/2025-04/...
 ├── Projects/
 │   ├── Website-Redesign/
-│   │   ├── Code/2025/2025-10/landing-page-website-533.css
-│   │   ├── Design/2025/2025-07/figma-redesign-906-v2.png
+│   │   ├── Code/2024/2024-10/landing-page-website-457-v4.js
+│   │   ├── Design/2025/2025-07/figma-redesign-906-v2.fig
 │   │   └── Images/2025/2025-12/Screenshot-website-388.jpg
 │   ├── Tax-2024/
-│   │   ├── Documents/2025/2025-10/receipt-tax-364-v4.pdf
+│   │   ├── Documents/2024/2024-10/receipt-tax-348.pdf
 │   │   └── Spreadsheets/2026/2026-06/invoice-invoice-918.xlsx
 │   ├── Uni-Research/
-│   │   ├── Documents/2026/2026-02/assignment-196-v4.pdf
+│   │   ├── Documents/2026/2026-02/assignment-196-v4.docx
 │   │   └── Presentations/2025/2025-03/lecture-564-v4.pptx
 │   ├── Client-Photoshoot/Images/2025/2025-12/IMG-wedding-274.jpg
-│   └── Side-Hustle/Images/2025/2025-12/product-photo.jpg
-└── _logs/organize_2026-09-13_01-07.log
+│   └── Side-Hustle/Images/2024/2024-12/product-photo.jpg
+└── _logs/organize_2026-09-13_01-27-40.log
 ```
+
+Duplicate names are auto-renamed, e.g. `product-photo.jpg` + `product-photo.jpg`
+→ `product-photo.jpg` + `product-photo_1.jpg`.
 
 ## Benchmark
 
-- 200 files: 0s
-- 2000 files: 2-4s (dry-run), 3-5s (copy)
-- Manual sorting 2000 files: ~16 hours
-- **Saved: 15.8 mins per 2000-file batch, ~15 mins/week ongoing**
+| Operation | Time |
+|-----------|------|
+| Generate 2,000 test files | ~0.2 s |
+| Dry-run (2,000 files) | ~0.1 s |
+| Live move (2,000 files) | ~0.3 s |
