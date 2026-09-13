@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""
-Demo generator - Creates 2000+ realistic downloaded files for testing
-"""
+"""Demo generator — creates realistic downloaded files for testing."""
 import argparse
+import os
 import random
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -74,11 +73,10 @@ def generate_files(count: int, source: Path):
         while file_path.exists():
             file_path = source / f"{original_stem}_{counter}{original_suffix}"
             counter += 1
-        file_path.write_bytes(b"0" * size)
-        
-        # Set mtime to random date
+        file_path.write_bytes(b"\0" * size)
+
+        # Set mtime to the random date
         timestamp = dt.timestamp()
-        import os
         os.utime(file_path, (timestamp, timestamp))
         
         if (i+1) % 500 == 0:
